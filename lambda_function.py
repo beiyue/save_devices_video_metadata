@@ -137,13 +137,4 @@ def save_dynamodb_tb(id,deviceID,begTime,endTime,duration,streamName):
         'datetime': {'S': datetime.utcnow().strftime("%Y%m%d%H%M%S")}
         }
     )
-    
-def read_dynamodb_tb(deviceID,begTime,endTime):
-    response = ddb_client.get_item(
-    TableName='tb_device_metadata',
-    Item={
-        'deviceID': {'S': deviceID},
-        'begTime': {'S': begTime},
-        'endTime': {'S': endTime}
-        }
-    )
+
