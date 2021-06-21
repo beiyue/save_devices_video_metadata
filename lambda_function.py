@@ -5,18 +5,57 @@ from datetime import timedelta
 import time
 import os
 import logging
+import base64
+from botocore.exceptions import ClientError
+
+REGION_NAME="<REGION_NAME>"
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
+secret = ''
 
+def get_secret():
+    secret_name = "<SECRET_NAME>"
 
-REGION_NAME="<REGION_NAME>"
-AWS_ACCESS_KEY_ID="<AWS_ACCESS_KEY_ID>"
-AWS_SECRET_ACCESS_KEY="<AWS_SECRET_ACCESS_KEY>"
+    # Create a Secrets Manager client
+    session = boto3.session.Session()
+    client = session.client(
+        service_name='secretsmanager',
+        region_name=REGION_NAME
+    )
+
+    try:
+        
+        get_secret_value_response = client.get_secret_value(SecretId=secret_name)
+        
+    except ClientError as e:
+        
+        if e.response['Error']['Code'] == 'DecryptionFailureException':
+            raise e
+        elif e.response['Error']['Code'] == 'InternalServiceErrorException':
+            raise e
+        elif e.response['Error']['Code'] == 'InvalidParameterException':
+            raise e
+        elif e.response['Error']['Code'] == 'InvalidRequestException':
+            raise e
+        elif e.response['Error']['Code'] == 'ResourceNotFoundException':
+            raise e
+    else:
+        if 'SecretString' in get_secret_value_response:
+            global secret
+            secret = get_secret_value_response['SecretString']
+        else:
+            decoded_binary_secret = base64.b64decode(get_secret_value_response['SecretBinary'])
+
+get_secret()
+secret_json = json.loads(secret)
+AWS_ACCESS_KEY_ID = secret_json['accessKeyId']
+AWS_SECRET_ACCESS_KEY = secret_json['secretKey']
+
 
 kvs = boto3.client("kinesisvideo")
-
 ddb_client = boto3.client('dynamodb',region_name=REGION_NAME,aws_access_key_id=AWS_ACCESS_KEY_ID,aws_secret_access_key=AWS_SECRET_ACCESS_KEY)
+
 
 def lambda_handler(event, context):
     res = ""
@@ -65,7 +104,8 @@ def lambda_handler(event, context):
         'body': json.dumps(res)
         #'body': json.dumps('Hello from Lambda!')
     }
-    
+
+
 def get_hls_url(client,streamName,begTime,endTime,duration):
     return client.get_hls_streaming_session_url(StreamName=streamName, PlaybackMode="ON_DEMAND",
                                                         HLSFragmentSelector={
